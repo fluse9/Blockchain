@@ -5,7 +5,7 @@ class Block {
         this.timestamp = timestamp;
         this.transactions = transactions;
         this.previousHash = previousHash;
-        this.hash = this.calculateHash();
+        this.hash = this.createHash();
         this.nonce = 0;
     }
 
@@ -13,13 +13,13 @@ class Block {
         const difficultyArray = Array(difficulty + 1).join('0');
         while (this.hash?.substring(0, difficulty) !== difficultyArray) {
             this.nonce++;
-            this.hash = this.calculateHash();
+            this.hash = this.createHash();
         }
 
         return this.hash;
     };
 
-    calculateHash = () => {
+    createHash = () => {
         const hash = SHA256(
             this.previousHash +
                 this.timestamp +
@@ -27,6 +27,17 @@ class Block {
                 this.nonce
         ).toString();
         return hash;
+    };
+
+    validateTransactions = () => {
+        for (const transaction of this.transactions) {
+            const isTransactionValid = transaction?.validateTransaction();
+            if (!isTransactionValid) {
+                return false;
+            }
+        }
+
+        return true;
     };
 }
 

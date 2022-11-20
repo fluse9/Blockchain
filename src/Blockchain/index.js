@@ -7,50 +7,57 @@ class Blockchain {
         this.chain = [genesisBlock];
         this.difficulty = 2;
         this.pendingTransactions = [];
-        this.stakingReward = 100;
+        this.reward = 100;
     }
 
     createGenesisBlock = () => {
-        const index = 0;
         const timestamp = new Date().toISOString();
-        const data = 'GenesisBlock';
+        const transactions = [];
         const previousHash = '0';
-        const genesisBlock = new Block(index, timestamp, data, previousHash);
+        const genesisBlock = new Block(timestamp, transactions, previousHash);
         return genesisBlock;
     };
 
-    getLastBlock = () => {
-        const lastBlockIndex = this.chain?.length - 1;
-        const lastBlock = this.chain[lastBlockIndex];
-        return lastBlock;
-    };
-
-    writePendingTransactions = (stakingRewardAddress) => {
+    createBlock = (rewardAddress) => {
         const timestamp = new Date().toISOString();
         const transactions = this.pendingTransactions;
-        let block = new Block(timestamp, transactions);
+        const previousHash = this.readLastBlock()?.hash;
+
+        let block = new Block(timestamp, transactions, previousHash);
         block.createBlock(this.difficulty);
+
         this.chain.push(block);
         this.pendingTransactions = [];
 
         const fromAddress = null;
-        const toAddress = stakingRewardAddress;
-        const amount = this.stakingReward;
-        const stakingRewardTransaction = new Transaction(
+        const toAddress = rewardAddress;
+        const amount = this.reward;
+        const rewardTransaction = new Transaction(
             fromAddress,
             toAddress,
             amount
         );
-        this.createPendingTransaction(stakingRewardTransaction);
+        this.createRewardTransaction(rewardTransaction);
         return this.pendingTransactions;
     };
 
-    createPendingTransaction = (transaction) => {
+    createRewardTransaction = (transaction) => {
         this.pendingTransactions?.push(transaction);
         return this.pendingTransactions;
     };
 
-    getAddressBalance = (address) => {
+    createPendingTransaction = (transaction) => {
+        if (!transaction?.fromAddress || !transaction?.toAddress) {
+            throw new Error('Transaction must include a from and to address');
+        } else if (!transaction.validateTransaction()) {
+            throw new Error('Cannot add an invalid transaction to the chain');
+        }
+
+        this.pendingTransactions?.push(transaction);
+        return this.pendingTransactions;
+    };
+
+    readAddressBalance = (address) => {
         let balance = 0;
         for (const block of this.chain) {
             for (const transaction of block.transactions) {
@@ -67,12 +74,20 @@ class Blockchain {
         return balance;
     };
 
+    readLastBlock = () => {
+        const lastBlockIndex = this.chain?.length - 1;
+        const lastBlock = this.chain[lastBlockIndex];
+        return lastBlock;
+    };
+
     validateChain = () => {
         for (let i = 1; i < this.chain?.length; i++) {
             const currentBlock = this.chain[i];
             const previousBlock = this.chain[i - 1];
 
-            if (currentBlock?.hash !== currentBlock?.calculateHash()) {
+            if (!currentBlock.validateTransactions()) {
+                return false;
+            } else if (currentBlock?.hash !== currentBlock?.createHash()) {
                 return false;
             } else if (currentBlock?.previousHash !== previousBlock?.hash) {
                 return false;
