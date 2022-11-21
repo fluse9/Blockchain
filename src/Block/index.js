@@ -1,11 +1,15 @@
 import SHA256 from 'crypto-js/sha256.js';
 
 class Block {
-    constructor(timestamp, transactions, previousHash = '') {
+    constructor(index, timestamp, transactions, previousHash) {
+        this.index = index;
         this.timestamp = timestamp;
         this.transactions = transactions;
         this.previousHash = previousHash;
-        this.hash = this.createHash();
+        this.hash =
+            previousHash === '0'
+                ? '30c8eae89973b668947c8ee09802470d51cedd8dda34841d29a03036ce56df5d'
+                : this.createHash();
         this.nonce = 0;
     }
 
@@ -21,7 +25,8 @@ class Block {
 
     createHash = () => {
         const hash = SHA256(
-            this.previousHash +
+            this.index +
+                this.previousHash +
                 this.timestamp +
                 JSON.stringify(this.transactions) +
                 this.nonce
