@@ -5,9 +5,11 @@ class Blockchain {
     constructor() {
         const genesisBlock = this.createGenesisBlock();
         this.chain = [genesisBlock];
-        this.difficulty = 2;
+        this.difficulty = 1;
         this.pendingTransactions = [];
         this.reward = 100;
+        this.validators = [];
+        this.validatorOfLastBlock = null;
     }
 
     createGenesisBlock = () => {
@@ -78,6 +80,42 @@ class Blockchain {
         const lastBlockIndex = this.chain?.length - 1;
         const lastBlock = this.chain[lastBlockIndex];
         return lastBlock;
+    };
+
+    createValidator = (walletAddress) => {
+        if (!walletAddress) {
+            throw new Error(
+                'A valid wallet address is required to become a validator'
+            );
+        }
+
+        this.validators?.push(walletAddress);
+        return walletAddress;
+    };
+
+    deleteValidator = (walletAddress) => {
+        let index = this.validators?.indexOf(walletAddress);
+        if (index > -1) {
+            this.validators?.splice(index, 1);
+        }
+
+        return walletAddress;
+    };
+
+    updateValidatorOfLastBlock = () => {
+        let index = 0;
+
+        if (this.validatorOfLastBlock) {
+            const validatorOfLastBlockIndex = this.validators?.indexOf(
+                this.validatorOfLastBlock
+            );
+            if (validatorOfLastBlockIndex < this.validators?.length - 1) {
+                index = validatorOfLastBlockIndex++;
+            }
+        }
+
+        this.validatorOfLastBlock = this.validators[index];
+        return this.validatorOfLastBlock;
     };
 
     validateChain = () => {

@@ -1,5 +1,5 @@
 import Blockchain from './src/Blockchain/index.js';
-import Key from './src/Key/index.js';
+import Wallet from './src/Wallet/index.js';
 import Transaction from './src/Transaction/index.js';
 
 const publicKey =
@@ -7,23 +7,26 @@ const publicKey =
 const privateKey =
     '2884c3b7c21d71f7fbee7dd10ff7c03040f35908aa6f13d142f6186816139145';
 
-const key = new Key();
-console.log(key);
-const myKey = key?.ec?.keyFromPrivate(privateKey);
-console.log(myKey);
-const myWalletAddress = myKey?.getPublic(key?.keyType);
+const wallet = new Wallet();
+console.log(wallet);
+const myWallet = wallet?.ec?.keyFromPrivate(privateKey);
+console.log(myWallet);
+const myWalletAddress = myWallet?.getPublic(wallet?.keyType);
 console.log(myWalletAddress);
 
 const testBlockchain = new Blockchain();
+testBlockchain.createValidator(myWalletAddress);
 
 const transaction1 = new Transaction(myWalletAddress, 'wallet2', 10);
-transaction1.signTransaction(myKey, key?.keyType);
+transaction1.signTransaction(myWallet, wallet?.keyType);
 console.log(transaction1);
 
 testBlockchain.createPendingTransaction(transaction1);
 
-testBlockchain.createBlock(myWalletAddress);
-testBlockchain.createBlock(myWalletAddress);
+const validatorOfLastBlockWalletAddress =
+    testBlockchain.updateValidatorOfLastBlock();
+testBlockchain.createBlock(validatorOfLastBlockWalletAddress);
+testBlockchain.createBlock(validatorOfLastBlockWalletAddress);
 console.log(testBlockchain);
 console.log(testBlockchain.readAddressBalance(myWalletAddress));
 

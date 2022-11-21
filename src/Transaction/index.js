@@ -1,5 +1,5 @@
 import SHA256 from 'crypto-js/sha256.js';
-import Key from '../Key/index.js';
+import Wallet from '../Wallet/index.js';
 
 class Transaction {
     constructor(fromAddress, toAddress, amount) {
@@ -14,14 +14,14 @@ class Transaction {
         ).toString();
     };
 
-    signTransaction = (key, keyType) => {
-        if (key?.getPublic(keyType) !== this.fromAddress) {
+    signTransaction = (wallet, keyType) => {
+        if (wallet?.getPublic(keyType) !== this.fromAddress) {
             throw new Error('You cannot sign transactions for other wallets');
         }
 
         const transactionHash = this.createHash();
         const signatureType = 'base64';
-        const signature = key?.sign(transactionHash, signatureType);
+        const signature = wallet?.sign(transactionHash, signatureType);
         this.signature = signature.toDER(keyType);
 
         return this.signature;
@@ -34,10 +34,10 @@ class Transaction {
             throw new Error('No signature in this transaction');
         }
 
-        const key = new Key();
-        const publicKey = key?.ec?.keyFromPublic(
+        const wallet = new Wallet();
+        const publicKey = wallet?.ec?.keyFromPublic(
             this.fromAddress,
-            key?.keyType
+            wallet?.keyType
         );
         const isPublicKeySigned = publicKey?.verify(
             this.createHash(),
