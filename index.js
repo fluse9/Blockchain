@@ -4,6 +4,7 @@ import defaults from 'dat-swarm-defaults';
 import getPort from 'get-port';
 
 import Blockchain from './src/Blockchain/index.js';
+import Block from './src/Block/index.js';
 import Wallet from './src/Wallet/index.js';
 import Transaction from './src/Transaction/index.js';
 import { CronJob } from 'cron';
@@ -26,27 +27,30 @@ const peers = {};
 let connectionSequence = 0;
 let channel = 'myBlockchain';
 
-const myPeerId = crypto.randomBytes(32);
+let myPeerId = crypto.randomBytes(32);
 
 const config = defaults({
     id: myPeerId,
 });
 const swarm = Swarm(config);
+myPeerId = myPeerId.toString('hex');
+console.log(myPeerId);
 
 const MessageType = {
     REQUEST_BLOCK: 'requestBlock',
     RECEIVE_NEXT_BLOCK: 'receiveNextBlock',
     RECEIVE_NEW_BLOCK: 'receiveNewBlock',
-    REQUEST_ALL_REGISTERED_VALIDATORS: 'requestAllRegisterValidators',
+    REQUEST_ALL_REGISTERED_VALIDATORS: 'requestAllRegisteredValidators',
+    RECEIVE_ALL_REGISTERED_VALIDATORS: 'receiveAllRegisteredValidators',
     REGISTER_VALIDATOR: 'registerValidator',
 };
 
 (async () => {
     const port = await getPort();
-    swarm.listen(port);
+    await swarm.listen(port);
 
-    swarm.join(channel);
-    swarm.on('connection', (connection, info) => {
+    await swarm.join(channel);
+    await swarm.on('connection', async (connection, info) => {
         const sequence = connectionSequence;
         const peerId = info.id.toString('hex');
         console.log(`Connected ${sequence} to peer: ${peerId}`);
@@ -59,12 +63,12 @@ const MessageType = {
             }
         }
 
-        connection.on('data', (data) => {
+        await connection.on('data', async (data) => {
             let message = JSON.parse(data);
             console.log('----------- Received Message start -------------');
             console.log(
                 'from: ' + peerId.toString('hex'),
-                'to: ' + peerId.toString(message.to),
+                'to: ' + peerId.toString('hex'),
                 'my: ' + myPeerId.toString('hex'),
                 'type: ' + JSON.stringify(message.type)
             );
@@ -76,28 +80,45 @@ const MessageType = {
                     let requestedIndex = JSON.parse(
                         JSON.stringify(message.data)
                     ).index;
+                    console.log(requestedIndex);
                     let requestedBlock = myBlockchain.readBlock(requestedIndex);
-                    if (requestedBlock)
-                        writeMessageToPeerToId(
+                    console.log(requestedBlock);
+                    if (requestedBlock) {
+                        await writeMessageToPeerToId(
                             peerId.toString('hex'),
                             MessageType.RECEIVE_NEXT_BLOCK,
                             requestedBlock
                         );
-                    else
+                    } else {
                         console.log(
-                            'No block found @ index: ' + requestedIndex
+                            'There is no block at index ' + requestedIndex
                         );
+                    }
                     console.log('-----------REQUEST_BLOCK-------------');
                     break;
                 case MessageType.RECEIVE_NEXT_BLOCK:
                     console.log('-----------RECEIVE_NEXT_BLOCK-------------');
-                    let nextBlockIndex = myBlockchain.readLastBlock().index + 1;
+                    console.log(typeof message.data);
+                    let nextBlock = JSON.parse(JSON.stringify(message.data));
+                    console.log(nextBlock);
+                    myBlockchain.chain[nextBlock?.index] = new Block(
+                        nextBlock.index,
+                        nextBlock.timestamp,
+                        nextBlock.transactions,
+                        nextBlock.previousHash,
+                        nextBlock.hash,
+                        nextBlock.nonce
+                    );
+                    console.log(myBlockchain.chain);
+                    let nextBlockIndex = nextBlock?.index + 1;
+                    console.log;
                     console.log(
                         '-- request next block @ index: ' + nextBlockIndex
                     );
-                    writeMessageToPeers(MessageType.REQUEST_BLOCK, {
+                    await writeMessageToPeers(MessageType.REQUEST_BLOCK, {
                         index: nextBlockIndex,
                     });
+                    message = {};
                     console.log('-----------RECEIVE_NEXT_BLOCK-------------');
                     break;
                 case MessageType.RECEIVE_NEW_BLOCK:
@@ -109,13 +130,20 @@ const MessageType = {
                             '-----------RECEIVE_NEW_BLOCK------------- ' +
                                 message.to
                         );
-                        const { newBlock, validatorOfNewBlockWalletAddress } =
+                        let { newBlock, validatorOfNewBlockWalletAddress } =
                             JSON.parse(JSON.stringify(message.data));
                         myBlockchain.addBlock(
-                            newBlock,
+                            new Block(
+                                newBlock.index,
+                                newBlock.timestamp,
+                                newBlock.transactions,
+                                newBlock.previousHash,
+                                newBlock.hash,
+                                newBlock.nonce
+                            ),
                             validatorOfNewBlockWalletAddress
                         );
-                        myBlockchain.validatorOfLastBlockWalletAddress =
+                        myBlockchain.validatorOfLastBlock =
                             validatorOfNewBlockWalletAddress;
                         console.log(JSON.stringify(newBlock));
                         console.log(JSON.stringify(myBlockchain.chain));
@@ -124,19 +152,36 @@ const MessageType = {
                                 message.to
                         );
                     }
+                    message = {};
                     break;
                 case MessageType.REQUEST_ALL_REGISTERED_VALIDATORS:
                     console.log(
-                        '-----------REQUEST_ALL_REGISTER_ VALIDATORS------------- ' +
+                        '-----------REQUEST_ALL_REGISTERED_VALIDATORS------------- ' +
                             message.to
                     );
-                    writeMessageToPeers(
-                        MessageType.REGISTER_VALIDATOR,
+                    await writeMessageToPeerToId(
+                        peerId.toString('hex'),
+                        MessageType.RECEIVE_ALL_REGISTERED_VALIDATORS,
                         myBlockchain.validators
                     );
-                    myBlockchain.validators = JSON.stringify(message.data);
+                    console.log(myBlockchain.validators);
                     console.log(
-                        '-------------REQUEST_ALL_REGISTER_ VALIDATORS------------- ' +
+                        '-------------REQUEST_ALL_REGISTERED_VALIDATORS------------- ' +
+                            message.to
+                    );
+                    break;
+                case MessageType.RECEIVE_ALL_REGISTERED_VALIDATORS:
+                    console.log(
+                        '-----------RECEIVE_ALL_REGISTERED_VALIDATORS------------- ' +
+                            message.to
+                    );
+                    console.log(message);
+                    myBlockchain.validators = JSON.parse(
+                        JSON.stringify(message.data)
+                    );
+                    console.log(myBlockchain.validators);
+                    console.log(
+                        '-----------RECEIVE_ALL_REGISTERED_VALIDATOR------------- ' +
                             message.to
                     );
                     break;
@@ -146,9 +191,9 @@ const MessageType = {
                             message.to
                     );
                     console.log(message);
-                    let validators = JSON.stringify(message.data);
-                    console.log(validators);
-                    myBlockchain.validators = JSON.parse(validators);
+                    myBlockchain.validators = JSON.parse(
+                        JSON.stringify(message.data)
+                    );
                     console.log(myBlockchain.validators);
                     console.log(
                         '-----------REGISTER_VALIDATOR------------- ' +
@@ -160,7 +205,7 @@ const MessageType = {
             }
         });
 
-        connection.on('close', () => {
+        await connection.on('close', () => {
             console.log(`Connection ${sequence} closed, peerId: ${peerId}`);
             if (peers[peerId].sequence === sequence) {
                 delete peers[peerId];
@@ -176,28 +221,36 @@ const MessageType = {
     });
 })();
 
-const writeMessageToPeers = (type, data) => {
-    for (let id in peers) {
-        console.log('-------- writeMessageToPeers start -------- ');
-        console.log('type: ' + type + ', to: ' + id);
-        console.log('-------- writeMessageToPeers end ----------- ');
-        sendMessage(id, type, data);
-    }
-};
-
-const writeMessageToPeerToId = (toId, type, data) => {
-    for (let id in peers) {
-        if (id === toId) {
-            console.log('-------- writeMessageToPeerToId start -------- ');
-            console.log('type: ' + type + ', to: ' + toId);
-            console.log('-------- writeMessageToPeerToId end ----------- ');
-            sendMessage(id, type, data);
+const writeMessageToPeers = async (type, data) => {
+    let peerIds = [].concat(...Object.entries(peers));
+    peerIds.map(async (peerId) => {
+        if (typeof peerId === 'string') {
+            let id = peerId;
+            console.log('-------- writeMessageToPeers start -------- ');
+            console.log('type: ' + type + ', to: ' + id);
+            console.log('-------- writeMessageToPeers end ----------- ');
+            return await sendMessage(id, type, data);
         }
-    }
+    });
 };
 
-const sendMessage = (id, type, data) => {
-    peers[id].connection.write(
+const writeMessageToPeerToId = async (toId, type, data) => {
+    let peerIds = [].concat(...Object.entries(peers));
+    peerIds.map(async (peerId) => {
+        if (typeof peerId === 'string') {
+            let id = peerId;
+            if (id === toId) {
+                console.log('-------- writeMessageToPeerToId start -------- ');
+                console.log('type: ' + type + ', to: ' + toId);
+                console.log('-------- writeMessageToPeerToId end ----------- ');
+                return await sendMessage(id, type, data);
+            }
+        }
+    });
+};
+
+const sendMessage = async (id, type, data) => {
+    return await peers[id].connection.write(
         JSON.stringify({
             to: id,
             from: myPeerId,
@@ -207,28 +260,26 @@ const sendMessage = (id, type, data) => {
     );
 };
 
-setTimeout(() => {
-    writeMessageToPeers(
+setTimeout(async () => {
+    await writeMessageToPeers(
         MessageType.REQUEST_ALL_REGISTERED_VALIDATORS,
         myBlockchain.validators
     );
-}, 5000);
+}, 1000);
 
-setTimeout(function () {
-    writeMessageToPeers(MessageType.REQUEST_BLOCK, {
-        index: myBlockchain.readLastBlock().index,
+setTimeout(async () => {
+    await writeMessageToPeers(MessageType.REQUEST_BLOCK, {
+        index: myBlockchain.readLastBlock().index + 1,
     });
 }, 5000);
 
-setTimeout(() => {
+setTimeout(async () => {
     myBlockchain.createValidator(myPeerId.toString('hex'));
-    console.log(myBlockchain.validators);
-    writeMessageToPeers(
+    await writeMessageToPeers(
         MessageType.REGISTER_VALIDATOR,
         myBlockchain.validators
     );
-    console.log(myBlockchain.validators);
-}, 7000);
+}, 10000);
 
 const validateNextBlock = new CronJob('10 * * * * *', () => {
     const validatorOfNextBlock = myBlockchain.updateValidatorOfLastBlock();

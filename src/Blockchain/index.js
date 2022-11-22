@@ -27,7 +27,7 @@ class Blockchain {
     };
 
     createBlock = () => {
-        const index = this.readLastBlock().index++;
+        const index = this.readLastBlock().index + 1;
         const timestamp = new Date().toISOString();
         const transactions = this.pendingTransactions;
         const previousHash = this.readLastBlock()?.hash;
@@ -107,6 +107,7 @@ class Blockchain {
             throw new Error('A valid peerId is required to become a validator');
         }
 
+        console.log(this.validators);
         this.validators?.push(peerId);
         console.log(this.validators);
         return peerId;
@@ -122,8 +123,6 @@ class Blockchain {
     };
 
     updateValidatorOfLastBlock = () => {
-        let index = 0;
-
         if (this.validatorOfLastBlock) {
             let validatorOfLastBlockIndex = this.validators?.indexOf(
                 this.validatorOfLastBlock
