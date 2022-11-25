@@ -1,4 +1,15 @@
 {
+    "name": "sf-chain",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "type": "module",
+    "scripts": {
+        "test": "jest --watchAll",
+        "dev-test": "nodemon dev-test",
+        "start": "node ./app",
+        "dev": "nodemon index.js"
+    },
     "dependencies": {
         "body-parser": "^1.20.1",
         "cron": "^2.1.0",
@@ -10,8 +21,8 @@
         "express": "^4.18.2",
         "get-port": "^5.1.1",
         "nodemon": "^2.0.20",
+        "p2p": "^0.10.2",
         "prettier": "^2.7.1",
         "ws": "^8.11.0"
-    },
-    "type": "module"
+    }
 }

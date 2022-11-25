@@ -152,6 +152,19 @@ class Blockchain {
             }
         }
     };
+
+    replaceChain = (newChain) => {
+        if (newChain?.length <= this.chain?.length) {
+            console.log('Recieved chain is not longer than the current chain');
+            return this.chain;
+        } else if (!this.isValidChain(newChain)) {
+            console.log('Recieved chain is invalid');
+            return this.chain;
+        }
+
+        this.chain = newChain;
+        return this.chain;
+    };
 }
 
 export default Blockchain;

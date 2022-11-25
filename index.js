@@ -2,15 +2,18 @@ import crypto from 'crypto';
 import Swarm from 'discovery-swarm';
 import defaults from 'dat-swarm-defaults';
 import getPort from 'get-port';
+import { CronJob } from 'cron';
 
 import Blockchain from './src/Blockchain/index.js';
 import Block from './src/Block/index.js';
 import Wallet from './src/Wallet/index.js';
 import Transaction from './src/Transaction/index.js';
-import { CronJob } from 'cron';
+import P2P from './src/P2P/index.js';
 
 const myBlockchain = new Blockchain();
+const P2PServer = new P2P(myBlockchain);
 
+/*
 const publicKey =
     '04f947e4518d6cb2cf36d50d031493080be3638a62b204cab7051f27df8ddc1a7416c8aed95c3cc75c37009b22fb5a899abd3b6961caf7277c46d442edf5e04e35';
 const privateKey =
@@ -303,7 +306,7 @@ const validateNextBlock = new CronJob('10 * * * * *', () => {
 });
 validateNextBlock.start();
 
-/*
+
 const testBlockchain = new Blockchain();
 testBlockchain.createValidator(myWalletAddress);
 
